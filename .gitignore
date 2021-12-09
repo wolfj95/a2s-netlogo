@@ -1,0 +1,6 @@
+.env
+.DS_Store
+cpresources
+*.sublime*
+*.tmp.*
+
