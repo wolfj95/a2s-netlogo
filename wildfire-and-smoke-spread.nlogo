@@ -30,12 +30,6 @@ particles-own [
   collision-where
   collision-flag
   collision-hatching
-  x-coord
-  y-coord
-  z-coord
-  x-vel
-  y-vel
-  z-vel
 ]
 
 dots-own [
@@ -96,21 +90,11 @@ to go
   
   ask particles [
     set collision-where patches in-radius (size / 2)
-
-    ;set observable-plane-collision-enemies other particles-on collision-where
-    ;set xyz-collision-enemies observable-plane-collision-enemies with [z-coord = z-coord]  ;;; need to account for y-coord in side view
-    ;if count xyz-collision-enemies > 0 ;; modified to be realistic, was = 1
-    ;[
-    ;  set collision-candidate one-of xyz-collision-enemies with [myself != last-collision]; and who < [who] of myself and ]
-    ;]
-
     set collision-enemies other particles-on collision-where
     if count collision-enemies > 0 ;; modified to be realistic, was = 1
     [
       set collision-candidate one-of collision-enemies with [myself != last-collision]; and who < [who] of myself and ]
     ]
-
-    ; collisions with walls
 	  if collision-check = 10 [
       if xcor > (max-pxcor - 2) [set xcor max-pxcor - 10]
       if xcor < (min-pxcor + 2) [set xcor min-pxcor + 10]
@@ -122,28 +106,9 @@ to go
   ask patches [
     set particles-on-patch count (particles-here)
   ]  
-  ifelse side-view [
-   side-view-function
-  ]
-  [
-    ask patches [
-      set pcolor original-color
-      if wildfire? = true [
-        set pcolor orange
-      ]
-    ]
-  ]
   
 end
 
-to side-view-function
-  ask patches [
-    set pcolor grey
-    if pycor = 0 [; min-pycor / 2 [
-      set pcolor green + 2
-    ]
-  ]
-end
 
 to bounce-wall
   set collision-check 1
@@ -154,21 +119,11 @@ to bounce-wall
 end
 
 to particle-forward
-
-  ;;update velocity with acceleration
-
-  ;; update position with velocity
-  set x-coord (x-coord + x-vel * tick-delta)
-  set y-coord (y-coord + y-vel * tick-delta)
+  let xcorr (xcor + dx * speed * tick-delta)
   let gravity 0
-  set gravity 100
-  set z-coord (z-coord + z-vel * tick-delta - gravity * (0.5 * tick-delta * tick-delta))
-  ifelse side-view = true [
-    setxy x-coord z-coord
-  ]
-  [
-    setxy x-coord y-coord
-  ]
+  ifelse particle-type = "water" [set gravity 0.01 ][set gravity .01 ]
+  let ycorr (ycor + dy * speed * tick-delta - gravity * (0.5 * tick-delta * tick-delta))
+  setxy xcorr ycorr
  ; if abs xcorr >= max-pxcor or abs ycorr >= max-pycor [
   ;  die ]
   
@@ -211,124 +166,56 @@ to check-for-collision
 end
 
 to collide-with [ other-particle ] ;; particle procedure
-;; for convenience, grab some quantities from other-particle
-  let x-coord2 [x-coord] of other-particle
-  let y-coord2 [y-coord] of other-particle
-  let z-coord2 [z-coord] of other-particle
-  let x-vel2 [x-vel] of other-particle
-  let y-vel2 [y-vel] of other-particle
-  let z-vel2 [z-vel] of other-particle
+  ;;; PHASE 1: initial setup
+
+  ;; for convenience, grab some quantities from other-particle
   let mass2 [mass] of other-particle
-  let size2 [size] of other-particle
+  let speed2 [speed] of other-particle
+  let heading2 [heading] of other-particle
+
+  ;; since particles are modeled as zero-size points, theta isn't meaningfully
+  ;; defined. we can assign it randomly without affecting the model's outcome.
+  let theta (random-float 360)
 
 
-  ;;initialize variables
-  let size-sum (size + size2)
-  let mass-ratio (mass2 / mass)
-  let x-diff (x-coord2 - x-coord)
-  let y-diff (y-coord2 - y-coord)
-  let z-diff (z-coord2 - z-coord)
-  let x-vel-diff (x-vel2 - x-vel)
-  let y-vel-diff (y-vel2 - y-vel)
-  let z-vel-diff (z-vel2 - z-vel)
 
-  let x-vel-cm (((mass * x-vel) + (mass2 * x-vel2))/(mass + mass2))
-  let y-vel-cm (((mass * y-vel) + (mass2 * y-vel2))/(mass + mass2))
-  let z-vel-cm (((mass * z-vel) + (mass2 * z-vel2))/(mass + mass2))
-  
+  ;;; PHASE 2: convert velocities to theta-based vector representation
+  ;; now convert my velocity from speed/heading representation to components
+  ;; along theta and perpendicular to theta
+  let v1t (speed * cos (theta - heading))
+  let v1l (speed * sin (theta - heading))
+  ;; do the same for other-particle
+  let v2t (speed2 * cos (theta - heading2))
+  let v2l (speed2 * sin (theta - heading2))
+  ;;; PHASE 3: manipulate vectors to implement collision
+  ;; compute the velocity of the system's center of mass along theta
+  let vcm (((mass * v1t) + (mass2 * v2t)) / (mass + mass2) )
+  ;; now compute the new velocity for each particle along direction theta.
+  ;; velocity perpendicular to theta is unaffected by a collision along theta,
+  ;; so the next two lines actually implement the collision itself, in the
+  ;; sense that the effects of the collision are exactly the following changes
+  ;; in particle velocity.
+  set v1t (2 * vcm - v1t)
+  set v2t (2 * vcm - v2t)
+  ;;; PHASE 4: convert back to normal speed/heading
+  ;; now convert my velocity vector into my new speed and heading
+  set speed sqrt ((v1t ^ 2) + (v1l ^ 2))
+  set energy (0.5 * mass * speed * speed)
+  ;; if the magnitude of the velocity vector is 0, atan is undefined. but
+  ;; speed will be 0, so heading is irrelevant anyway. therefore, in that
+  ;; case we'll just leave it unmodified.
+  if v1l != 0 or v1t != 0
+    [ set heading (theta - (atan v1l v1t)) ]
 
-  ;; calculate relative distance and relative speed
-  let rel-distance (sqrt (x-diff * x-diff + y-diff * y-diff + z-diff * z-diff))
-  let rel-speed (sqrt (x-vel-diff * x-vel-diff + y-vel-diff * y-vel-diff + z-vel-diff * z-vel-diff))
-
-  ;; shift coordinate system so particle 1 is at the origin
-  let x-coord-2 (x-diff)
-  let y-coord-2 (y-diff)
-  let z-coord-2 (z-diff)
-
-  ;; boost coordinate system so ball 2 is resting
-  set x-vel (- x-vel2)
-  set y-vel (- y-vel2)
-  set z-vel (- z-vel2)
-
-  ;; find polar coordinates of the loation of ball 2
-  let theta2 (acos (z-coord2 / rel-distance))
-  let phi2 0
-  ifelse (x-coord-2 = 0) and (y-coord-2 = 0) [set phi2 (0)] [set phi2 (atan y-coord2 x-coord2)]
-  let sin-theta (sin theta2)
-  let cos-theta  (cos theta2)
-  let sin-phi (sin phi2)
-  let cos-phi (sin phi2)
-
-  ;; express velocity vector of ball 1 in a rotated coordinate system where ball 2 lies on z-axis
-  let x-vel-rotated (cos-theta * cos-phi * x-vel + cos-theta * sin-phi * y-vel - sin-theta * z-vel)
-  let y-vel-rotated (cos-phi * y-vel - sin-phi * x-vel)
-  let z-vel-rotated (sin-theta * cos-phi * x-vel + sin-theta * sin-phi * y-vel + cos-theta * z-vel)
-  let f-z-vel-rotated (z-vel-rotated / rel-speed)
-  if (f-z-vel-rotated > 1) [ set f-z-vel-rotated 1]
-  if (f-z-vel-rotated < -1) [ set f-z-vel-rotated -1]
-  let theta-vel (acos f-z-vel-rotated)
-  let phi-vel 0
-  ifelse (x-vel-rotated = 0) and (y-vel-rotated = 0) [set phi-vel 0] [set phi-vel (atan y-vel-rotated x-vel-rotated)]
-
-  ;; calculate normalized impact parameter
-  let dr (rel-distance * (sin (theta-vel) / size-sum))
-
-  ;; QUESTION: should we set old positions if balls do not collide?
-  
-
-  ;; calculate impact angle of collision
-  let alpha asin (- dr)
-  let beta phi-vel
-  let sbeta (sin beta)
-  let cbeta (cos beta)
-
-  ;; calcualte time to collision
-  let time (rel-distance * (cos theta-vel) - size-sum * (sqrt (1 - dr * dr)) / rel-speed)
-
-  ;; update positions and reverse coordinate shift
-  set x-coord2 (x-coord2 + x-vel2 * time + x-coord)
-  set y-coord2 (y-coord2 + y-vel2 * time + y-coord)
-  set z-coord2 (z-coord2 + z-vel2 * time + z-coord)
-  set x-coord ((x-vel + x-vel2) * time + x-coord)
-  set y-coord ((y-vel + y-vel2) * time + y-coord)
-  set z-coord ((z-vel + z-vel2) * time + z-coord)
-
-  ;; update velocities
-  let a tan (theta-vel + alpha)
-  
-  let dvz2 (2 * (z-vel-rotated + a * (cbeta * x-vel-rotated + sbeta * y-vel-rotated)) / ((1 + a * a) * (1 + mass-ratio)))
-
-  let z-vel2-rotated dvz2
-  let x-vel2-rotated (a * cbeta * dvz2)
-  let y-vel2-rotated (a * sbeta * dvz2)
-  set z-vel-rotated (z-vel-rotated - mass-ratio * z-vel2-rotated)
-  set x-vel-rotated (x-vel-rotated - mass-ratio * x-vel2-rotated)
-  set y-vel-rotated (y-vel-rotated - mass-ratio * y-vel2-rotated)
-
-
-  ;; rotate velocity vecotrs back and add initial velocity vector of ball 2 to retrieve original coordinate system
-  set x-vel (cos-theta * cos-phi * x-vel-rotated - sin-phi * y-vel-rotated + sin-theta * cos-phi * z-vel-rotated + x-vel2)
-  set y-vel (cos-theta * sin-phi * x-vel-rotated + cos-phi * y-vel-rotated + sin-theta * sin-phi * z-vel-rotated + y-vel2)
-  set z-vel (cos-theta * z-vel-rotated - sin-theta * x-vel-rotated + z-vel2)
-  set x-vel2 (cos-theta * cos-phi * x-vel2-rotated - sin-phi * y-vel2-rotated + sin-theta * cos-phi * z-vel2-rotated + x-vel2)
-  set y-vel2 (cos-theta * sin-phi * x-vel2-rotated + cos-phi * y-vel2-rotated + sin-theta * sin-phi * z-vel2-rotated + y-vel2)
-  set z-vel2 (cos-theta * z-vel2-rotated - sin-theta * x-vel2-rotated + z-vel2)
-
+  ;; and do the same for other-particle
   ask other-particle [
-    set x-coord x-coord2
-    set y-coord y-coord2
-    set z-coord z-coord2
-    set x-vel x-vel2
-    set y-vel y-vel2
-    set z-vel z-vel2
-    set color blue
+    set speed sqrt ((v2t ^ 2) + (v2l ^ 2))
+    set energy (0.5 * mass * (speed ^ 2))
+    if v2l != 0 or v2t != 0
+      [ set heading (theta - (atan v2l v2t)) ]
   ]
-
   ;; PHASE 5: final updates
-  ;; recoloring for testing
-  set color red
-
+  ;; no recoloring in our case
 end
 
 to drop-with-mouse [number]
@@ -854,3 +741,4 @@ Line -7500403 true 150 150 210 180
 @#$#@#$#@
 
 @#$#@#$#@
+
