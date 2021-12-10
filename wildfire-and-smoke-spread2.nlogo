@@ -5,7 +5,10 @@ globals [
   collision-check
   recent-particles														;; to be used to regulate for each particles
   initial-temperature
+
   particles-on-patch
+  
+  
   
 ]
 
@@ -30,6 +33,11 @@ particles-own [
   collision-where
   collision-flag
   collision-hatching
+  force-up
+  force-down
+  force-side
+  acceleration-y
+  acceleration-x
 ]
 
 dots-own [
@@ -57,38 +65,62 @@ to setup
   
   ask patches [
     ifelse random (2) > 0 [
-      set pcolor green + 2 + random (2)
+    ;  set pcolor green + 2 + random (2)
     ]
     [
-      set pcolor green + 2 + random (2)
+     ; set pcolor green + 2 + random (2)
     ]
     set original-color pcolor
     set wildfire? false
     ;;
     if pxcor = 0 and pycor = 0 [ 
-      set pcolor red 
-      set wildfire? true
-    ]    
+    ;  set pcolor red 
+    ;  set wildfire? true
+      ]    
   ]
   ask patches with [wildfire? = true] [
     ask patches in-radius 3 [
       if (random 10) < 5 [
-        set pcolor red 
-  	    set wildfire? true
+     ;   set pcolor red 
+  	  ;  set wildfire? true
       ]
     ]
   ]      
+  
+  ask patches with [pycor < 0.95 * min-pycor]
+    [
+      ifelse abs pxcor < 5
+      [
+      set pcolor red
+      ]
+      [
+      set pcolor green
+      ]
+    ]
+  
 
+  
+  ask dots with  [abs xcor < max-pxcor - 5 and abs ycor < max-pycor - 5]
+  [
+    ;create-links-to dots in-radius 20
+  ]
+  ask dots [ht]
+  ask links [hide-link]
   set mouse-up? true
   set collision-check 0
   set tick-delta 0.02
   set max-tick-delta 1
-  set initial-temperature 10
+  set initial-temperature temperature
 end
 
 to go
   
   ask particles [
+    set acceleration-x 0
+    set acceleration-y 0
+    set force-side 0
+    set force-up 0
+    set force-down 0
     set collision-where patches in-radius (size / 2)
     set collision-enemies other particles-on collision-where
     if count collision-enemies > 0 ;; modified to be realistic, was = 1
@@ -107,39 +139,66 @@ to go
     set particles-on-patch count (particles-here)
   ]  
   
+
+  
+  ifelse grid? [
+    ask dots [st]
+    ask links [show-link]
+  ]
+  [
+    ask dots [ht]
+    ask links [hide-link]
+  ]
 end
 
 
 to bounce-wall
   set collision-check 1
   if abs [pxcor] of patch-ahead 1 >= max-pxcor - 4
-    [ set heading (- heading) ]
-  if abs [pycor] of patch-ahead 1 >= max-pycor - 4
-    [ set heading (180 - heading) ]
+    [die]
+  ;  [ set heading (- heading) ]
+  ;if abs [pycor] of patch-ahead 1 >= max-pycor - 4
+  if  [pycor] of patch-ahead 1 >= max-pycor - 4
+  
+     [die]
+;    [ set heading (180 - heading) ]
 end
 
 to particle-forward
   let xcorr (xcor + dx * speed * tick-delta)
-  let gravity 0
-  ifelse particle-type = "water" [set gravity 0.01 ][set gravity .01 ]
-  let ycorr (ycor + dy * speed * tick-delta - gravity * (0.5 * tick-delta * tick-delta))
+  let ycorr (ycor + dy * speed * tick-delta)
   setxy xcorr ycorr
- ; if abs xcorr >= max-pxcor or abs ycorr >= max-pycor [
-  ;  die ]
-  
-  if speed > 0 [
-    factor-gravity
+  if abs xcorr >= max-pxcor or abs ycorr >= max-pycor [
+    die ]
+    
+  let vx (dx * speed) + (acceleration-x * tick-delta)
+  let vy (dy * speed) + (acceleration-y * tick-delta)
+  set speed sqrt ((vy ^ 2) + (vx ^ 2))
+  set heading atan vx vy
+end
+
+to factor-up-force
+  ask particles  [ 
+    let dist sqrt ((xcor - 0) ^ 2 + (ycor - min-pycor) ^ 2)
+    set force-up (75 - dist)
+    if force-up < 0 [set force-up 0]
+    set acceleration-y (acceleration-y + force-up)
   ]
 end
 
+to factor-gravity-force
+  ask particles  [ 
+    let gravity 5
+    set force-down (- gravity * mass)
+    set acceleration-y (acceleration-y + force-down)
+  ]
+end
 
-to factor-gravity  ;; turtle procedure to update speed and heading
-  let gravity 0
-  ifelse particle-type = "water" [set gravity 0.01 ][set gravity .01 ]
-  let vx (dx * speed)
-  let vy (dy * speed) - (gravity * tick-delta) ;; fixed gravity now is 3.5 was
-  set speed sqrt ((vy ^ 2) + (vx ^ 2))
-  set heading atan vx vy
+to factor-wind-force
+  ask particles  [ 
+    set force-side wind-speed / 10
+    set acceleration-x (acceleration-x + force-side)
+  ]
 end
 
 to move-particles-away
@@ -243,8 +302,8 @@ to drop-with-mouse [number]
   setxy mouse-x mouse-y
 
   let disperse-factor 80
-;  if initial-temperature < 15 [set disperse-factor 120]
-  let rand-heading ( 2 * initial-temperature + disperse-factor)
+;  if temperature < 15 [set disperse-factor 120]
+  let rand-heading ( 2 * temperature + disperse-factor)
   ifelse collision-check = 1 [
     set heading  180 -  rand-heading / 2 + random rand-heading
   ]
@@ -252,6 +311,7 @@ to drop-with-mouse [number]
     set heading 180 -  rand-heading / 20 + random rand-heading / 10
   ]
 end
+
 
 ; --- START BLOCKLY GENERATED NETLOGO ---
 
@@ -277,10 +337,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--50
-50
--50
-50
+-100
+100
+-100
+100
 1
 1
 1
@@ -362,16 +422,32 @@ side-view
 1
 -1000
 
+SLIDER
+0
+575
+131
+608
+temperature
+temperature
+0
+50
+25
+1
+1
+ºC
+HORIZONTAL
+
 SWITCH
-480
-65
-580
-98
-temperature
-temperature
+0
+615
+100
+648
+grid?
+grid?
 1
 1
 -1000
+
 @#$#@#$#@
 ## WHAT IS IT?
 
