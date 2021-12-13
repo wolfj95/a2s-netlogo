@@ -375,12 +375,12 @@ to collide-with [ other-particle ] ;; particle procedure
     set x-vel x-vel2
     set y-vel y-vel2
     set z-vel z-vel2
-    set color blue
+    ;set color blue
   ]
 
   ;; PHASE 5: final updates
   ;; recoloring for testing
-  set color red
+  ;set color red
   ;show "collision"
   ;show x-coord
   ;show y-coord
