@@ -170,7 +170,11 @@ to particle-forward
   setxy xcorr ycorr
   if abs xcorr >= max-pxcor or abs ycorr >= max-pycor [
     die ]
-    
+
+  apply-forces
+end
+
+to apply-forces
   let vx (dx * speed) + (acceleration-x * tick-delta)
   let vy (dy * speed) + (acceleration-y * tick-delta)
   set speed sqrt ((vy ^ 2) + (vx ^ 2))
@@ -178,27 +182,21 @@ to particle-forward
 end
 
 to factor-up-force
-  ask particles  [ 
-    let dist sqrt ((xcor - 0) ^ 2 + (ycor - min-pycor) ^ 2)
-    set force-up (75 - dist)
-    if force-up < 0 [set force-up 0]
-    set acceleration-y (acceleration-y + force-up)
-  ]
+  let dist sqrt ((xcor - 0) ^ 2 + (ycor - min-pycor) ^ 2)
+  set force-up (75 - dist)
+  if force-up < 0 [set force-up 0]
+  set acceleration-y (acceleration-y + force-up)
 end
 
 to factor-gravity-force
-  ask particles  [ 
-    let gravity 5
-    set force-down (- gravity * mass)
-    set acceleration-y (acceleration-y + force-down)
-  ]
+  let gravity 5
+  set force-down (- gravity * mass)
+  set acceleration-y (acceleration-y + force-down)
 end
 
 to factor-wind-force
-  ask particles  [ 
-    set force-side wind-speed / 10
-    set acceleration-x (acceleration-x + force-side)
-  ]
+  set force-side (wind-speed * 50)
+  set acceleration-x (acceleration-x + force-side)
 end
 
 to move-particles-away
