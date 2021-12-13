@@ -139,7 +139,14 @@ to go
     set particles-on-patch count (particles-here)
   ]  
   
-
+  ifelse heat-map [
+    show-heat-map
+  ]
+  [
+	  ask patches with  [pycor >= 0.95 * min-pycor][
+      set pcolor white
+    ]
+  ]
   
   ifelse grid? [
     ask dots [st]
@@ -151,6 +158,16 @@ to go
   ]
 end
 
+to show-heat-map
+  let max-dist 0
+  ask patches with [pxcor = max-pxcor and pycor = max-pycor][
+    set max-dist sqrt ((pxcor - 0) ^ 2 + (pycor - min-pycor) ^ 2)
+  ]
+  ask patches with  [pycor >= 0.95 * min-pycor][
+    let dist sqrt ((pxcor - 0) ^ 2 + (pycor - min-pycor) ^ 2)
+    set pcolor red + (dist * (19.9 - 15) / max-dist)
+  ]
+end
 
 to bounce-wall
   set collision-check 1
@@ -168,7 +185,7 @@ to particle-forward
   let xcorr (xcor + dx * speed * tick-delta)
   let ycorr (ycor + dy * speed * tick-delta)
   setxy xcorr ycorr
-  if abs xcorr >= max-pxcor or abs ycorr >= max-pycor [
+  if abs xcorr >= max-pxcor or abs ycorr >= max-pycor and particle-type = "smoke"[
     die ]
 
   apply-forces
@@ -442,6 +459,17 @@ SWITCH
 648
 grid?
 grid?
+1
+1
+-1000
+
+SWITCH
+10
+225
+110
+258
+heat-map
+heat-map
 1
 1
 -1000
