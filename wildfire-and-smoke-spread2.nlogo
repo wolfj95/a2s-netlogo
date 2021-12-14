@@ -7,9 +7,6 @@ globals [
   initial-temperature
 
   particles-on-patch
-  
-  
-  
 ]
 
 patches-own [
@@ -33,9 +30,6 @@ particles-own [
   collision-where
   collision-flag
   collision-hatching
-  force-up
-  force-down
-  force-side
   acceleration-y
   acceleration-x
 ]
@@ -118,9 +112,6 @@ to go
   ask particles [
     set acceleration-x 0
     set acceleration-y 0
-    set force-side 0
-    set force-up 0
-    set force-down 0
     set collision-where patches in-radius (size / 2)
     set collision-enemies other particles-on collision-where
     if count collision-enemies > 0 ;; modified to be realistic, was = 1
@@ -200,19 +191,19 @@ end
 
 to factor-up-force
   let dist sqrt ((xcor - 0) ^ 2 + (ycor - min-pycor) ^ 2)
-  set force-up (75 - dist)
+  let force-up (75 - dist)
   if force-up < 0 [set force-up 0]
   set acceleration-y (acceleration-y + force-up)
 end
 
 to factor-gravity-force
   let gravity 5
-  set force-down (- gravity * mass)
+  let force-down (- gravity * mass)
   set acceleration-y (acceleration-y + force-down)
 end
 
 to factor-wind-force
-  set force-side (wind-speed * 50)
+  let force-side (wind-speed * 50)
   set acceleration-x (acceleration-x + force-side)
 end
 

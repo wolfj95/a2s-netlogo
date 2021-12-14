@@ -30,6 +30,8 @@ particles-own [
   collision-where
   collision-flag
   collision-hatching
+  acceleration-y
+  acceleration-x
 ]
 
 dots-own [
@@ -89,6 +91,8 @@ end
 to go
   
   ask particles [
+    set acceleration-x 0
+    set acceleration-y 0
     set collision-where patches in-radius (size / 2)
     set collision-enemies other particles-on collision-where
     if count collision-enemies > 0 ;; modified to be realistic, was = 1
@@ -120,26 +124,26 @@ end
 
 to particle-forward
   let xcorr (xcor + dx * speed * tick-delta)
-  let gravity 0
-  ifelse particle-type = "water" [set gravity 0.01 ][set gravity .01 ]
-  let ycorr (ycor + dy * speed * tick-delta - gravity * (0.5 * tick-delta * tick-delta))
+  let ycorr (ycor + dy * speed * tick-delta)
   setxy xcorr ycorr
- ; if abs xcorr >= max-pxcor or abs ycorr >= max-pycor [
-  ;  die ]
-  
-  if speed > 0 [
-    factor-gravity
-  ]
+  if abs xcorr >= max-pxcor or abs ycorr >= max-pycor and particle-type = "smoke"[
+    die ]
+
+  apply-forces
 end
 
-
-to factor-gravity  ;; turtle procedure to update speed and heading
-  let gravity 0
-  ifelse particle-type = "water" [set gravity 0.01 ][set gravity .01 ]
-  let vx (dx * speed)
-  let vy (dy * speed) - (gravity * tick-delta) ;; fixed gravity now is 3.5 was
+to apply-forces
+  let vx (dx * speed) + (acceleration-x * tick-delta)
+  let vy (dy * speed) + (acceleration-y * tick-delta)
   set speed sqrt ((vy ^ 2) + (vx ^ 2))
   set heading atan vx vy
+end
+
+to factor-wind-force
+  let wind-x-vel (wind-speed * cos ((90 - wind-direction) mod 360)) * 50  ;; converting wind direction to account for NL world geometry where 90 is right
+  let wind-y-vel (wind-speed * sin ((90 - wind-direction) mod 360)) * 50
+  set acceleration-x (acceleration-x + wind-x-vel)
+  set acceleration-y (acceleration-y + wind-y-vel)
 end
 
 to move-particles-away
