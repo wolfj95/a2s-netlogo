@@ -212,6 +212,8 @@ end
 
 to collide-with [ other-particle ] ;; particle procedure
 
+  ;; code for collision from: https://www.plasmaphysics.org.uk/programs/coll3d_cpp.htm
+
   ;; for convenience, grab some quantities from other-particle
   let x-coord2 [x-coord] of other-particle
   let y-coord2 [y-coord] of other-particle
