@@ -178,8 +178,6 @@ to particle-forward
   setxy xcorr ycorr
   if abs xcorr >= max-pxcor or abs ycorr >= max-pycor and particle-type = "smoke"[
     die ]
-
-  apply-forces
 end
 
 to apply-forces
@@ -187,6 +185,8 @@ to apply-forces
   let vy (dy * speed) + (acceleration-y * tick-delta)
   set speed sqrt ((vy ^ 2) + (vx ^ 2))
   set heading atan vx vy
+  set acceleration-x 0
+  set acceleration-y 0
 end
 
 to factor-up-force
