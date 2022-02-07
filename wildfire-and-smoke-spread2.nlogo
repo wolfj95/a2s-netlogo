@@ -184,26 +184,29 @@ to apply-forces
   let vx (dx * speed) + (acceleration-x * tick-delta)
   let vy (dy * speed) + (acceleration-y * tick-delta)
   set speed sqrt ((vy ^ 2) + (vx ^ 2))
-  set heading atan vx vy
+  ifelse (vx = 0 and vy = 0) [set heading heading] [set heading atan vx vy]
   set acceleration-x 0
   set acceleration-y 0
 end
 
 to factor-up-force
   let dist sqrt ((xcor - 0) ^ 2 + (ycor - min-pycor) ^ 2)
-  let force-up (75 - dist)
+  let force-up (70 - dist)
   if force-up < 0 [set force-up 0]
+  set force-up force-up / mass
   set acceleration-y (acceleration-y + force-up)
 end
 
 to factor-gravity-force
   let gravity 5
   let force-down (- gravity * mass)
+  set force-down force-down / mass
   set acceleration-y (acceleration-y + force-down)
 end
 
 to factor-wind-force
   let force-side (wind-speed * 50)
+  set force-side force-side / mass
   set acceleration-x (acceleration-x + force-side)
 end
 
