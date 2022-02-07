@@ -5,8 +5,9 @@ globals [
   collision-check
   recent-particles														;; to be used to regulate for each particles
   initial-temperature
-
   particles-on-patch
+  smoke-move-flag?
+  air-move-flag?
 ]
 
 patches-own [
@@ -149,6 +150,19 @@ to go
   ]
 end
 
+to post-go
+  if smoke-move-flag? [
+    ask particles with [particle-type = "smoke"][
+      particle-forward
+    ]
+  ]
+  if air-move-flag? [
+    ask particles with [particle-type = "air"][
+      particle-forward
+    ]
+  ]
+end
+
 to show-heat-map
   let max-dist 0
   ask patches with [pxcor = max-pxcor and pycor = max-pycor][
@@ -178,6 +192,12 @@ to particle-forward
   setxy xcorr ycorr
   if abs xcorr >= max-pxcor or abs ycorr >= max-pycor and particle-type = "smoke"[
     die ]
+  if particle-type = "smoke" [
+    set smoke-move-flag? false
+  ]
+  if particle-type = "air" [
+    set air-move-flag? false
+  ]
 end
 
 to apply-forces
@@ -191,10 +211,16 @@ end
 
 to factor-up-force
   let dist sqrt ((xcor - 0) ^ 2 + (ycor - min-pycor) ^ 2)
-  let force-up (70 - dist)
+  let force-up (65 - dist)
   if force-up < 0 [set force-up 0]
   set force-up force-up / mass
   set acceleration-y (acceleration-y + force-up)
+  if particle-type = "smoke" [
+    set smoke-move-flag? true
+  ]
+  if particle-type = "air" [
+    set air-move-flag? true
+  ]
 end
 
 to factor-gravity-force
@@ -202,12 +228,24 @@ to factor-gravity-force
   let force-down (- gravity * mass)
   set force-down force-down / mass
   set acceleration-y (acceleration-y + force-down)
+  if particle-type = "smoke" [
+    set smoke-move-flag? true
+  ]
+  if particle-type = "air" [
+    set air-move-flag? true
+  ]
 end
 
 to factor-wind-force
   let force-side (wind-speed * 50)
   set force-side force-side / mass
   set acceleration-x (acceleration-x + force-side)
+  if particle-type = "smoke" [
+    set smoke-move-flag? true
+  ]
+  if particle-type = "air" [
+    set air-move-flag? true
+  ]
 end
 
 to move-particles-away
