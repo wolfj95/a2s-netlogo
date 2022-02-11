@@ -6,8 +6,6 @@ globals [
   recent-particles														;; to be used to regulate for each particles
   initial-temperature
   particles-on-patch
-  smoke-move-flag?
-  air-move-flag?
 ]
 
 patches-own [
@@ -31,8 +29,8 @@ particles-own [
   collision-where
   collision-flag
   collision-hatching
-  acceleration-y
-  acceleration-x
+  initial-vel-x
+  initial-vel-y
 ]
 
 dots-own [
@@ -111,8 +109,8 @@ end
 to go
   
   ask particles [
-    set acceleration-x 0
-    set acceleration-y 0
+    set initial-vel-x dx * speed
+    set initial-vel-y dy * speed
     set collision-where patches in-radius (size / 2)
     set collision-enemies other particles-on collision-where
     if count collision-enemies > 0 ;; modified to be realistic, was = 1
@@ -150,19 +148,6 @@ to go
   ]
 end
 
-to post-go
-  if smoke-move-flag? [
-    ask particles with [particle-type = "smoke"][
-      particle-forward
-    ]
-  ]
-  if air-move-flag? [
-    ask particles with [particle-type = "air"][
-      particle-forward
-    ]
-  ]
-end
-
 to show-heat-map
   let max-dist 0
   ask patches with [pxcor = max-pxcor and pycor = max-pycor][
@@ -187,26 +172,25 @@ to bounce-wall
 end
 
 to particle-forward
-  let xcorr (xcor + dx * speed * tick-delta)
-  let ycorr (ycor + dy * speed * tick-delta)
+  let xcorr (xcor + initial-vel-x * tick-delta)
+  let ycorr (ycor + initial-vel-y * tick-delta)
   setxy xcorr ycorr
   if abs xcorr >= max-pxcor or abs ycorr >= max-pycor and particle-type = "smoke"[
     die ]
-  if particle-type = "smoke" [
-    set smoke-move-flag? false
-  ]
-  if particle-type = "air" [
-    set air-move-flag? false
-  ]
 end
 
-to apply-forces
-  let vx (dx * speed) + (acceleration-x * tick-delta)
-  let vy (dy * speed) + (acceleration-y * tick-delta)
+to apply-acceleration-component [accel-x accel-y]
+  ;; update velocity
+  let vx (dx * speed) + (accel-x * tick-delta)
+  let vy (dy * speed) + (accel-y * tick-delta)
   set speed sqrt ((vy ^ 2) + (vx ^ 2))
   ifelse (vx = 0 and vy = 0) [set heading heading] [set heading atan vx vy]
-  set acceleration-x 0
-  set acceleration-y 0
+
+  ;; update position
+  let xcorr (xcor + accel-x * tick-delta)
+  let ycorr (ycor + accel-y * tick-delta)
+  setxy xcorr ycorr
+  if abs xcorr >= max-pxcor or abs ycorr >= max-pycor and particle-type = "smoke"[ die ]
 end
 
 to factor-up-force
@@ -214,38 +198,20 @@ to factor-up-force
   let force-up (65 - dist)
   if force-up < 0 [set force-up 0]
   set force-up force-up / mass
-  set acceleration-y (acceleration-y + force-up)
-  if particle-type = "smoke" [
-    set smoke-move-flag? true
-  ]
-  if particle-type = "air" [
-    set air-move-flag? true
-  ]
+  apply-acceleration-component 0 force-up
 end
 
 to factor-gravity-force
   let gravity 5
   let force-down (- gravity * mass)
   set force-down force-down / mass
-  set acceleration-y (acceleration-y + force-down)
-  if particle-type = "smoke" [
-    set smoke-move-flag? true
-  ]
-  if particle-type = "air" [
-    set air-move-flag? true
-  ]
+  apply-acceleration-component 0 force-down
 end
 
 to factor-wind-force
   let force-side (wind-speed * 50)
   set force-side force-side / mass
-  set acceleration-x (acceleration-x + force-side)
-  if particle-type = "smoke" [
-    set smoke-move-flag? true
-  ]
-  if particle-type = "air" [
-    set air-move-flag? true
-  ]
+  apply-acceleration-component force-side 0
 end
 
 to move-particles-away
