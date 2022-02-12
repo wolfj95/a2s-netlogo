@@ -179,7 +179,15 @@ to particle-forward
     die ]
 end
 
-to apply-acceleration-component [accel-x accel-y]
+to move [direction-x direction-y magnitude]
+  ;; normalize velecoity vector
+  let old-magnitude sqrt (direction-x * direction-x + direction-y * direction-y)
+  let direction-x-norm direction-x / old-magnitude
+  let direction-y-norm direction-y / old-magnitude
+
+  let accel-x (direction-x-norm * magnitude)
+  let accel-y (direction-y-norm * magnitude)
+  
   ;; update velocity
   let vx (dx * speed) + (accel-x * tick-delta)
   let vy (dy * speed) + (accel-y * tick-delta)
@@ -191,6 +199,11 @@ to apply-acceleration-component [accel-x accel-y]
   let ycorr (ycor + accel-y * tick-delta)
   setxy xcorr ycorr
   if abs xcorr >= max-pxcor or abs ycorr >= max-pycor and particle-type = "smoke"[ die ]
+
+end
+
+to-report distance-from-fire
+  report sqrt ((xcor - 0) ^ 2 + (ycor - min-pycor) ^ 2)
 end
 
 to factor-up-force
@@ -198,20 +211,20 @@ to factor-up-force
   let force-up (65 - dist)
   if force-up < 0 [set force-up 0]
   set force-up force-up / mass
-  apply-acceleration-component 0 force-up
+  ;;apply-acceleration-component 0 force-up
 end
 
 to factor-gravity-force
   let gravity 5
   let force-down (- gravity * mass)
   set force-down force-down / mass
-  apply-acceleration-component 0 force-down
+  ;;apply-acceleration-component 0 force-down
 end
 
 to factor-wind-force
   let force-side (wind-speed * 50)
   set force-side force-side / mass
-  apply-acceleration-component force-side 0
+  ;;apply-acceleration-component force-side 0
 end
 
 to move-particles-away
