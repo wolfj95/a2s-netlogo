@@ -242,7 +242,7 @@ to drop-with-mouse [number]
 
   setxy mouse-x mouse-y
 
-  let disperse-factor 80
+  let disperse-factor 160
 ;  if temperature < 15 [set disperse-factor 120]
   let rand-heading ( 2 * temperature + disperse-factor)
   ifelse collision-check = 1 [
