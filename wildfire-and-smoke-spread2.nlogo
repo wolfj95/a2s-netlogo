@@ -19,6 +19,8 @@ breed [ dots dot ]
 
 breed [ particles particle ]
 
+breed [ arrowheads arrowhead ]
+
 particles-own [
   speed mass energy          ;; particle info
   particle-type							 ;; new one
@@ -31,6 +33,8 @@ particles-own [
   collision-hatching
   initial-vel-x
   initial-vel-y
+  move-factor
+  my-velocity-arrow ; an arrow to track our velocity
 ]
 
 dots-own [
@@ -111,6 +115,7 @@ to go
   ask particles [
     set initial-vel-x dx * speed
     set initial-vel-y dy * speed
+    set move-factor 1
     set collision-where patches in-radius (size / 2)
     set collision-enemies other particles-on collision-where
     if count collision-enemies > 0 ;; modified to be realistic, was = 1
@@ -185,8 +190,8 @@ to move [direction-x direction-y magnitude]
   let direction-x-norm direction-x / old-magnitude
   let direction-y-norm direction-y / old-magnitude
 
-  let accel-x (direction-x-norm * magnitude)
-  let accel-y (direction-y-norm * magnitude)
+  let accel-x (direction-x-norm * magnitude * move-factor)
+  let accel-y (direction-y-norm * magnitude * move-factor)
   
   ;; update velocity
   let vx (dx * speed) + (accel-x * tick-delta)
@@ -203,7 +208,11 @@ to move [direction-x direction-y magnitude]
 end
 
 to-report distance-from-fire
-  report sqrt ((xcor - 0) ^ 2 + (ycor - min-pycor) ^ 2)
+  report sqrt ((xcor - 0) ^ 2 + (ycor - min-pycor) ^ 2)  / world-height
+end
+
+to-report mass-factor
+  report mass / 11
 end
 
 to factor-up-force
