@@ -6,6 +6,7 @@ globals [
   recent-particles														;; to be used to regulate for each particles
   initial-temperature
   particles-on-patch
+  random-wiggle
 ]
 
 patches-own [
