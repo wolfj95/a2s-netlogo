@@ -30,8 +30,9 @@ particles-own [
   collision-where
   collision-flag
   collision-hatching
-  acceleration-y
-  acceleration-x
+  initial-vel-x
+  initial-vel-y
+  move-factor
 ]
 
 dots-own [
@@ -81,6 +82,8 @@ to setup
     ]
   ]      
 
+  ask dots [ht]
+  ask links [hide-link]
   set mouse-up? true
   set collision-check 0
   set tick-delta 0.02
@@ -91,8 +94,9 @@ end
 to go
   
   ask particles [
-    set acceleration-x 0
-    set acceleration-y 0
+    set initial-vel-x dx * speed
+    set initial-vel-y dy * speed
+    set move-factor 1
     set collision-where patches in-radius (size / 2)
     set collision-enemies other particles-on collision-where
     if count collision-enemies > 0 ;; modified to be realistic, was = 1
@@ -123,27 +127,34 @@ to bounce-wall
 end
 
 to particle-forward
-  let xcorr (xcor + dx * speed * tick-delta)
-  let ycorr (ycor + dy * speed * tick-delta)
+  let xcorr (xcor + initial-vel-x * tick-delta)
+  let ycorr (ycor + initial-vel-y * tick-delta)
   setxy xcorr ycorr
   if abs xcorr >= max-pxcor or abs ycorr >= max-pycor and particle-type = "smoke"[
     die ]
-
-  apply-forces
 end
 
-to apply-forces
-  let vx (dx * speed) + (acceleration-x * tick-delta)
-  let vy (dy * speed) + (acceleration-y * tick-delta)
+to move [direction-x direction-y magnitude]
+  ;; normalize velecoity vector
+  let old-magnitude sqrt (direction-x * direction-x + direction-y * direction-y)
+  let direction-x-norm direction-x / old-magnitude
+  let direction-y-norm direction-y / old-magnitude
+
+  let accel-x (direction-x-norm * magnitude * move-factor)
+  let accel-y (direction-y-norm * magnitude * move-factor)
+  
+  ;; update velocity
+  let vx (dx * speed) + (accel-x * tick-delta)
+  let vy (dy * speed) + (accel-y * tick-delta)
   set speed sqrt ((vy ^ 2) + (vx ^ 2))
-  set heading atan vx vy
-end
+  ifelse (vx = 0 and vy = 0) [set heading heading] [set heading atan vx vy]
 
-to factor-wind-force
-  let wind-x-vel (wind-speed * cos ((90 - wind-direction) mod 360)) * 50  ;; converting wind direction to account for NL world geometry where 90 is right
-  let wind-y-vel (wind-speed * sin ((90 - wind-direction) mod 360)) * 50
-  set acceleration-x (acceleration-x + wind-x-vel)
-  set acceleration-y (acceleration-y + wind-y-vel)
+  ;; update position
+  let xcorr (xcor + accel-x * tick-delta)
+  let ycorr (ycor + accel-y * tick-delta)
+  setxy xcorr ycorr
+  if abs xcorr >= max-pxcor or abs ycorr >= max-pycor and particle-type = "smoke"[ die ]
+
 end
 
 to move-particles-away
