@@ -87,7 +87,7 @@ to setup
   
   ask patches with [pycor < 0.95 * min-pycor]
     [
-      ifelse abs pxcor < 5
+      ifelse pxcor < -45 and pxcor > -55
       [
       set pcolor red
       ]
@@ -157,10 +157,10 @@ end
 to show-heat-map
   let max-dist 0
   ask patches with [pxcor = max-pxcor and pycor = max-pycor][
-    set max-dist sqrt ((pxcor - 0) ^ 2 + (pycor - min-pycor) ^ 2)
+    set max-dist sqrt ((pxcor + 50) ^ 2 + (pycor - min-pycor) ^ 2)
   ]
   ask patches with  [pycor >= 0.95 * min-pycor][
-    let dist sqrt ((pxcor - 0) ^ 2 + (pycor - min-pycor) ^ 2)
+    let dist sqrt ((pxcor + 50) ^ 2 + (pycor - min-pycor) ^ 2)
     set pcolor red + (dist * (19.9 - 15) / max-dist)
   ]
 end
@@ -209,7 +209,7 @@ to move [direction-x direction-y magnitude]
 end
 
 to-report distance-from-fire
-  report sqrt ((xcor - 0) ^ 2 + (ycor - min-pycor) ^ 2)  / world-height
+  report sqrt ((xcor + 50) ^ 2 + (ycor - min-pycor) ^ 2)  / world-height
 end
 
 to-report mass-factor
