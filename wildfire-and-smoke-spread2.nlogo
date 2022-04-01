@@ -102,6 +102,15 @@ to setup
   [
     ;create-links-to dots in-radius 20
   ]
+
+  ifelse heat-map [
+    show-heat-map
+  ]
+  [
+	  ask patches with  [pycor >= 0.95 * min-pycor][
+      set pcolor white
+    ]
+  ]
   ask dots [ht]
   ask links [hide-link]
   set mouse-up? true
