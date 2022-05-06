@@ -56,12 +56,7 @@ to setup
   ]
   
   ask patches [
-    ifelse random (2) > 0 [
-      set pcolor green + 2 + random (2)
-    ]
-    [
-      set pcolor green + 2 + random (2)
-    ]
+    set pcolor green + 2
     set original-color pcolor
     set wildfire? false
     ;;
