@@ -7,11 +7,20 @@ globals [
   initial-temperature
   particles-on-patch
   random-wiggle
-  grid-showing?
 ]
 
-breed [ particles particle ]
+patches-own [
+  smokes-on-patch
+  temperature-patch
+  wildfire?
+  original-color
+]
+
 breed [ dots dot ]
+
+breed [ particles particle ]
+
+breed [ arrowheads arrowhead ]
 
 particles-own [
   speed mass energy          ;; particle info
@@ -23,6 +32,10 @@ particles-own [
   collision-where
   collision-flag
   collision-hatching
+  initial-vel-x
+  initial-vel-y
+  move-factor
+  my-velocity-arrow ; an arrow to track our velocity
 ]
 
 dots-own [
@@ -40,105 +53,197 @@ to setup
     [ set pcolor gray ]
   ask patches with [abs pycor > max-pycor - 0]
     [ set pcolor gray ]
+ ;; ask patches with [remainder (pxcor + 10) 20 = 0 and remainder (pycor + 10) 20 = 0 ][
   ask patches with [remainder (pxcor) 20 = 0 and remainder (pycor) 20 = 0 ][
     sprout-dots 1 [
       set color gray
       set size 1
     ]
   ]
-  ;ask dots with  [abs xcor < max-pxcor - 5 and abs ycor < max-pycor - 5][
-  ;  create-links-to dots in-radius 20]
+  
+  ask patches [
+    ifelse random (2) > 0 [
+    ;  set pcolor green + 2 + random (2)
+    ]
+    [
+     ; set pcolor green + 2 + random (2)
+    ]
+    set original-color pcolor
+    set wildfire? false
+    ;;
+    if pxcor = 0 and pycor = 0 [ 
+    ;  set pcolor red 
+    ;  set wildfire? true
+      ]    
+  ]
+  ask patches with [wildfire? = true] [
+    ask patches in-radius 3 [
+      if (random 10) < 5 [
+     ;   set pcolor red 
+  	  ;  set wildfire? true
+      ]
+    ]
+  ]      
+  
+  ask patches with [pycor < 0.95 * min-pycor]
+    [
+      ifelse pxcor < -45 and pxcor > -55
+      [
+      set pcolor red
+      ]
+      [
+      set pcolor green
+      ]
+    ]
+  
+
+  
+  ask dots with  [abs xcor < max-pxcor - 5 and abs ycor < max-pycor - 5]
+  [
+    ;create-links-to dots in-radius 20
+  ]
+
+  ifelse heat-map [
+    show-heat-map
+  ]
+  [
+	  ask patches with  [pycor >= 0.95 * min-pycor][
+      set pcolor white
+    ]
+  ]
   ask dots [ht]
-  ;ask links [hide-link]
+  ask links [hide-link]
   set mouse-up? true
   set collision-check 0
   set tick-delta 0.02
   set max-tick-delta 1
   set initial-temperature temperature
-  set grid-showing? not grid?
-  ifelse grid? [show-grid] [hide-grid]
-end
-
-to show-grid
-  if not grid-showing? [
-    ask dots [st]
-    ;; setup grid
-    ask patches with [remainder (pxcor) 20 = 0 or remainder (pycor) 20 = 0 ][
-      set pcolor gray
-    ]
-    set grid-showing? true
-  ]
-end
-
-to hide-grid
-  if grid-showing? [
-    ask dots [ht]
-    ask patches with [remainder (pxcor) 20 = 0 or remainder (pycor) 20 = 0 ][
-      set pcolor white
-    ]
-    set grid-showing? false
-  ]
 end
 
 to go
-  plotxy ticks ink-spread
+  
   ask particles [
+    set initial-vel-x dx * speed
+    set initial-vel-y dy * speed
+    set move-factor 1
     set collision-where patches in-radius (size / 2)
     set collision-enemies other particles-on collision-where
     if count collision-enemies > 0 ;; modified to be realistic, was = 1
     [
       set collision-candidate one-of collision-enemies with [myself != last-collision]; and who < [who] of myself and ]
     ]
-	  if collision-check = 1 [
+	  if collision-check = 10 [
       if xcor > (max-pxcor - 2) [set xcor max-pxcor - 10]
       if xcor < (min-pxcor + 2) [set xcor min-pxcor + 10]
       if ycor > (max-pycor - 2) [set ycor max-pycor - 10]
       if ycor < (min-pycor + 2) [set ycor min-pycor + 10]
     ]
   ]
-
+  
   ask patches [
     set particles-on-patch count (particles-here)
-  ]
-
-  ifelse grid? [
-    show-grid
+  ]  
+  
+  ifelse heat-map [
+    show-heat-map
   ]
   [
-    hide-grid
+	  ask patches with  [pycor >= 0.95 * min-pycor][
+      set pcolor white
+    ]
+  ]
+  
+  ifelse grid? [
+    ask dots [st]
+    ask links [show-link]
+  ]
+  [
+    ask dots [ht]
+    ask links [hide-link]
   ]
 end
 
+to show-heat-map
+  let max-dist 0
+  ask patches with [pxcor = max-pxcor and pycor = max-pycor][
+    set max-dist sqrt ((pxcor + 50) ^ 2 + (pycor - min-pycor) ^ 2)
+  ]
+  ask patches with  [pycor >= 0.95 * min-pycor][
+    let dist sqrt ((pxcor + 50) ^ 2 + (pycor - min-pycor) ^ 2)
+    set pcolor red + (dist * (19.9 - 15) / max-dist)
+  ]
+end
 
 to bounce-wall
   set collision-check 1
   if abs [pxcor] of patch-ahead 1 >= max-pxcor - 4
-    [ set heading (- heading) ]
-  if abs [pycor] of patch-ahead 1 >= max-pycor - 4
-    [ set heading (180 - heading) ]
+    [die]
+  ;  [ set heading (- heading) ]
+  ;if abs [pycor] of patch-ahead 1 >= max-pycor - 4
+  if  [pycor] of patch-ahead 1 >= max-pycor - 4
+  
+     [die]
+;    [ set heading (180 - heading) ]
 end
 
 to particle-forward
-  let xcorr (xcor + dx * speed * tick-delta)
-  let gravity 0
-  ifelse particle-type = "water" [set gravity 0.01 ][set gravity .01 ]
-  let ycorr (ycor + dy * speed * tick-delta - gravity * (0.5 * tick-delta * tick-delta))
+  let xcorr (xcor + initial-vel-x * tick-delta)
+  let ycorr (ycor + initial-vel-y * tick-delta)
   setxy xcorr ycorr
-  if abs xcorr >= max-pxcor or abs ycorr >= max-pycor [
-  die ]
-  if speed > 0 [
-    factor-gravity
-  ]
+  if abs xcorr >= max-pxcor or abs ycorr >= max-pycor and particle-type = "smoke"[
+    die ]
 end
 
+to move [direction-x direction-y magnitude]
+  ;; normalize velecoity vector
+  let old-magnitude sqrt (direction-x * direction-x + direction-y * direction-y)
+  let direction-x-norm direction-x / old-magnitude
+  let direction-y-norm direction-y / old-magnitude
 
-to factor-gravity  ;; turtle procedure to update speed and heading
-  let gravity 0
-  ifelse particle-type = "water" [set gravity 0.01 ][set gravity .01 ]
-  let vx (dx * speed)
-  let vy (dy * speed) - (gravity * tick-delta) ;; fixed gravity now is 3.5 was
+  let accel-x (direction-x-norm * magnitude * move-factor)
+  let accel-y (direction-y-norm * magnitude * move-factor)
+  
+  ;; update velocity
+  let vx (dx * speed) + (accel-x * tick-delta)
+  let vy (dy * speed) + (accel-y * tick-delta)
   set speed sqrt ((vy ^ 2) + (vx ^ 2))
-  set heading atan vx vy
+  ifelse (vx = 0 and vy = 0) [set heading heading] [set heading atan vx vy]
+
+  ;; update position
+  let xcorr (xcor + accel-x * tick-delta)
+  let ycorr (ycor + accel-y * tick-delta)
+  setxy xcorr ycorr
+  if abs xcorr >= max-pxcor or abs ycorr >= max-pycor and particle-type = "smoke"[ die ]
+
+end
+
+to-report distance-from-fire
+  report sqrt ((xcor + 50) ^ 2 + (ycor - min-pycor) ^ 2)  / world-height
+end
+
+to-report mass-factor
+  report mass / 11
+end
+
+to factor-up-force
+  let dist sqrt ((xcor - 0) ^ 2 + (ycor - min-pycor) ^ 2)
+  let force-up (65 - dist)
+  if force-up < 0 [set force-up 0]
+  set force-up force-up / mass
+  ;;apply-acceleration-component 0 force-up
+end
+
+to factor-gravity-force
+  let gravity 5
+  let force-down (- gravity * mass)
+  set force-down force-down / mass
+  ;;apply-acceleration-component 0 force-down
+end
+
+to factor-wind-force
+  let force-side (wind-speed * 50)
+  set force-side force-side / mass
+  ;;apply-acceleration-component force-side 0
 end
 
 to move-particles-away
@@ -154,7 +259,6 @@ to move-particles-away
   fd 0.5
 end
 
-
 to check-for-collision
   set collision-check 1
   if (count collision-enemies > 0) and (collision-candidate != nobody) and (speed > 0 or [speed] of collision-candidate > 0)
@@ -168,10 +272,17 @@ end
 to collide-with [ other-particle ] ;; particle procedure
   ;;; PHASE 1: initial setup
 
+  let initial-dx-1 dx
+  let initial-dy-1 dy
+  let initial-speed-1 speed
+
   ;; for convenience, grab some quantities from other-particle
   let mass2 [mass] of other-particle
   let speed2 [speed] of other-particle
   let heading2 [heading] of other-particle
+  let initial-dx-2 [dx] of other-particle
+  let initial-dy-2 [dy] of other-particle
+  let initial-speed-2 [speed] of other-particle
 
   ;; since particles are modeled as zero-size points, theta isn't meaningfully
   ;; defined. we can assign it randomly without affecting the model's outcome.
@@ -197,6 +308,7 @@ to collide-with [ other-particle ] ;; particle procedure
   ;; in particle velocity.
   set v1t (2 * vcm - v1t)
   set v2t (2 * vcm - v2t)
+
   ;;; PHASE 4: convert back to normal speed/heading
   ;; now convert my velocity vector into my new speed and heading
   set speed sqrt ((v1t ^ 2) + (v1l ^ 2))
@@ -214,22 +326,39 @@ to collide-with [ other-particle ] ;; particle procedure
     if v2l != 0 or v2t != 0
       [ set heading (theta - (atan v2l v2t)) ]
   ]
-  ;; PHASE 5: final updates
-  ;; no recoloring in our case
+
+  ;; PHASE 5: Find acceleration generated by collision for first particle
+  ;; and ipdate position with that acceleration
+  let x-accel dx * speed - initial-dx-1 * initial-speed-1
+  let y-accel dy * speed - initial-dy-1 * initial-speed-1
+
+  let xcorr (xcor + x-accel * tick-delta)
+  let ycorr (ycor + y-accel * tick-delta)
+  setxy xcorr ycorr
+
+  ;; PHASE 6: Repeat for other particle
+  ask other-particle [
+    let x-accel-2 dx * speed - initial-dx-2 * initial-speed-2
+    let y-accel-2 dy * speed - initial-dy-2 * initial-speed-2
+
+    let xcorr-2 (xcor + x-accel-2 * tick-delta)
+    let ycorr-2 (ycor + y-accel-2 * tick-delta)
+    setxy xcorr-2 ycorr-2
+  ]
+
 end
 
 to drop-with-mouse [number]
-  let mouse-x mouse-xcor
-  let mouse-y mouse-ycor
-
   let boundaries 20
   if number < 100 [set boundaries max-pxcor * 0.05]
   if number > 250 [set boundaries max-pxcor * 0.1]
 
   if (abs mouse-xcor >= max-pxcor - boundaries) or abs mouse-ycor >= max-pycor - boundaries [
-    set mouse-x boundaries - max-pxcor + 10
-    set mouse-y max-pycor - boundaries - 10
+    die
   ]
+
+  let mouse-x mouse-xcor
+  let mouse-y mouse-ycor
 
   let randxy 2 + random number / 50
   let rand-radius random 360
@@ -243,7 +372,7 @@ to drop-with-mouse [number]
 
   setxy mouse-x mouse-y
 
-  let disperse-factor 160
+  let disperse-factor 80
 ;  if temperature < 15 [set disperse-factor 120]
   let rand-heading ( 2 * temperature + disperse-factor)
   ifelse collision-check = 1 [
@@ -254,19 +383,6 @@ to drop-with-mouse [number]
   ]
 end
 
-to-report ink-spread
-  ask dots [
-    ifelse count particles in-radius 20 with [particle-type = "ink"]  > 0 [
-      set empty 0
-      set color red + 2
-    ]
-    [
-      set empty 1
-      set color green + 2
-    ]
-  ]
-  report precision (100 * count dots with [empty = 0] / count dots) 2
-end
 
 ; --- START BLOCKLY GENERATED NETLOGO ---
 
@@ -303,27 +419,27 @@ ticks
 30
 
 BUTTON
-10
-10
-90
-43
-set
+185
+15
+257
+48
+setup
 blocks-set
 NIL
 1
 T
 OBSERVER
 NIL
-S
+NIL
 NIL
 NIL
 1
 
 BUTTON
-10
-50
-90
-83
+185
+60
+260
+93
 go
 blocks-go
 T
@@ -331,33 +447,57 @@ T
 T
 OBSERVER
 NIL
-G
-NIL
-NIL
-1
-
-BUTTON
-10
-90
-90
-123
-go once
-blocks-go
-NIL
-1
-T
-OBSERVER
 NIL
 NIL
 NIL
-NIL
-1
+0
 
 SLIDER
-13
-135
-144
-168
+300
+65
+449
+98
+wind-speed
+wind-speed
+0
+50
+10
+1
+1
+km/h
+HORIZONTAL
+
+SLIDER
+300
+15
+449
+48
+wind-direction
+wind-direction
+0
+359
+90
+1
+1
+º
+HORIZONTAL
+
+SWITCH
+480
+15
+580
+48
+side-view
+side-view
+1
+1
+-1000
+
+SLIDER
+0
+575
+131
+608
 temperature
 temperature
 0
@@ -369,61 +509,27 @@ temperature
 HORIZONTAL
 
 SWITCH
-15
-180
-115
-213
-grid?
-grid?
 0
+615
+100
+648
+grid?
+grid?
+1
 1
 -1000
 
-BUTTON
+SWITCH
 10
-227
-90
-261
-go unpckd
-blocks-go-test
-T
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-MONITOR
-640
-65
-753
+225
 110
-ink spread (%)
-ink-spread
-0
+258
+heat-map
+heat-map
 1
-11
+1
+-1000
 
-PLOT
-637
-121
-832
-370
-Ink spread
-Time (ticks)
-%
-0
-10
-0
-100
-true
-false
-"" ""
-PENS
-"default" 0.1 0 -16777216 true "" "plot ink-spread"
 @#$#@#$#@
 ## WHAT IS IT?
 
